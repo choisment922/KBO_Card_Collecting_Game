@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚾ 야구 숫자 게임</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+/*
+  ══════════════════════════════════════════════════════
+  POKEMON-CARDS-CSS  완전 이식
+  원본: https://github.com/simeydotme/pokemon-cards-css
+  data-rarity 값을 원본 그대로 사용:
+    common / uncommon  → 기본 글레어
+    rare holo          → 버티컬 빔 홀로 (regular-holo.css)
+    rare holo v        → 수직 선필라 그라디언트 (v-regular.css)  ← ultra
+    rare secret        → 골드 코닉 + 글리터 (secret-rare.css)    ← hyper
+  ══════════════════════════════════════════════════════
+*/
+
+/* ── CSS 변수 ── */
+:root {
+  --card-aspect: 0.718;
+  --card-radius: 4.55% / 3.5%;
+  --card-edge:   hsl(47,100%,78%);
+  --card-back:   hsl(205,100%,25%);
+  --card-glow:   hsl(175,100%,90%);
+
+  --sunpillar-1: hsl(2,100%,73%);   --sunpillar-2: hsl(53,100%,69%);
+  --sunpillar-3: hsl(93,100%,69%);  --sunpillar-4: hsl(176,100%,76%);
+  --sunpillar-5: hsl(228,100%,74%); --sunpillar-6: hsl(283,100%,73%);
+  --sunpillar-clr-1: var(--sunpillar-1); --sunpillar-clr-2: var(--sunpillar-2);
+  --sunpillar-clr-3: var(--sunpillar-3); --sunpillar-clr-4: var(--sunpillar-4);
+  --sunpillar-clr-5: var(--sunpillar-5); --sunpillar-clr-6: var(--sunpillar-6);
+
+  --red:#f80e35; --yellow:#eedf10; --green:#21e985; --blue:#0dbde9; --violet:#c929f1;
+
+  --space: 5%; --angle: 133deg; --imgsize: cover;
+  --glittersize: 25%;
+
+  /* 카드 인터랙션 변수 (JS가 실시간 주입) */
+  --pointer-x: 50%;   --pointer-y: 50%;
+  --pointer-from-center: 0;
+  --pointer-from-top: 0; --pointer-from-left: 0;
+  --card-opacity: 0;
+  --rotate-x: 0deg;  --rotate-y: 0deg;
+  --background-x: 50%; --background-y: 50%;
+  --card-scale: 1;
+  --translate-x: 0px; --translate-y: 0px;
+}
+
+/* ── 카드 레이어 구조 (원본 Card.svelte HTML과 동일) ── */
+.card {
+  width: 240px;
+  height: calc(240px / 0.718);
+  position: relative;
+  z-index: calc(var(--card-scale) * 2);
+  will-change: transform;
+  transform-style: preserve-3d;
+  cursor: pointer;
+}
+.card__translater {
+  width:100%; height:100%;
+  transform: translate3d(var(--translate-x), var(--translate-y),
+    calc(var(--card-scale)*150px + 0.01px)) scale(var(--card-scale));
+  transform-origin: center;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.card__rotator {
+  width:100%; height:100%;
+  display: grid;
+  perspective: 600px;
+  transform: rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
+  transform-style: preserve-3d;
+  transform-origin: center;
+  will-change: transform;
+  border-radius: var(--card-radius);
+  box-shadow:
+    0 0 3px -1px transparent, 0 0 2px 1px transparent, 0 0 5px 0px transparent,
+    0px 10px 20px -5px black,  0 2px 15px -5px black,  0 0 20px 0px transparent;
+  transition: box-shadow .4s ease;
+}
+.card.active .card__rotator {
+  box-shadow:
+    0 0 3px -1px white,
+    0 0 3px 1px var(--card-edge),
+    0 0 12px 2px var(--card-glow),
+    0px 10px 20px -5px black,
+    0 0 40px -30px var(--card-glow),
+    0 0 50px -20px var(--card-glow);
+}
+.card__rotator * {
+  width:100%; display:grid; grid-area:1/1;
+  aspect-ratio: var(--card-aspect);
+  border-radius: var(--card-radius);
+  overflow: hidden; pointer-events: none;
+}
+.card__front {
+  transform: translate3d(0,0,0.01px);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.card__front > img.card__img {
+  width:100%; height:100%; object-fit:cover;
+  display:block; border-radius: var(--card-radius);
+}
+
+/* ── shine / glare 공통 (원본 base.css) ── */
+.card__shine {
+  transform: translateZ(1px); z-index: 3;
+  background: transparent;
+  filter: brightness(.85) contrast(2.75) saturate(.65);
+  mix-blend-mode: color-dodge;
+  opacity: var(--card-opacity);
+  will-change: transform, opacity, background-image, background-size, background-position, filter;
+  overflow: hidden;
+}
+.card__shine::before, .card__shine::after {
+  --sunpillar-clr-1: var(--sunpillar-5); --sunpillar-clr-2: var(--sunpillar-6);
+  --sunpillar-clr-3: var(--sunpillar-1); --sunpillar-clr-4: var(--sunpillar-2);
+  --sunpillar-clr-5: var(--sunpillar-3); --sunpillar-clr-6: var(--sunpillar-4);
+  content: ""; grid-area: 1/1;
+  transform: translateZ(1px); border-radius: var(--card-radius); overflow: hidden;
+}
+.card__shine::after {
+  --sunpillar-clr-1: var(--sunpillar-6); --sunpillar-clr-2: var(--sunpillar-1);
+  --sunpillar-clr-3: var(--sunpillar-2); --sunpillar-clr-4: var(--sunpillar-3);
+  --sunpillar-clr-5: var(--sunpillar-4); --sunpillar-clr-6: var(--sunpillar-5);
+  transform: translateZ(1.2px);
+}
+.card__glare {
+  transform: translateZ(1.41px); z-index: 4; overflow: hidden;
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsla(0,0%,100%,0.8) 10%, hsla(0,0%,100%,0.65) 20%, hsla(0,0%,0%,0.5) 90%
+  );
+  opacity: var(--card-opacity);
+  mix-blend-mode: overlay;
+  will-change: transform, opacity, background-image, background-size, background-position, filter;
+}
+
+/* ══════════════════════════════════════════════════════
+   레어도별 shine 효과 — 원본 CSS 파일 그대로
+══════════════════════════════════════════════════════ */
+
+/* common / uncommon : shine 없음, glare만 */
+.card[data-rarity="common"]   .card__shine,
+.card[data-rarity="uncommon"] .card__shine { background: none; filter: none; }
+
+/* ── rare holo  (regular-holo.css 원본) ── */
+.card[data-rarity="rare holo"] .card__shine {
+  background-image:
+    repeating-linear-gradient(110deg,
+      var(--violet), var(--blue), var(--green), var(--yellow), var(--red),
+      var(--violet), var(--blue), var(--green), var(--yellow), var(--red),
+      var(--violet), var(--blue), var(--green), var(--yellow), var(--red)
+    ),
+    repeating-linear-gradient(90deg,
+      black 0px, black 2px, #666 2px, #666 4px
+    );
+  background-position:
+    calc(((50% - var(--background-x)) * 2.6) + 50%)
+    calc(((50% - var(--background-y)) * 3.5) + 50%),
+    center center;
+  background-size: 400% 400%, cover;
+  background-blend-mode: overlay;
+  filter: brightness(1.1) contrast(1.1) saturate(1.2);
+  mix-blend-mode: color-dodge;
+}
+.card[data-rarity="rare holo"] .card__shine::before {
+  --bars: 3%;
+  --bar-color: hsla(0,0%,70%,1);
+  --bar-bg: hsla(0,0%,0%,1);
+  background-image:
+    repeating-linear-gradient(90deg,
+      var(--bar-bg)  calc(var(--bars)*2),
+      var(--bar-color) calc(var(--bars)*3),
+      var(--bar-bg)  calc(var(--bars)*3.5),
+      var(--bar-color) calc(var(--bars)*4),
+      var(--bar-bg)  calc(var(--bars)*5),
+      var(--bar-bg)  calc(var(--bars)*14)
+    ),
+    repeating-linear-gradient(90deg,
+      var(--bar-bg)  calc(var(--bars)*2),
+      var(--bar-color) calc(var(--bars)*3),
+      var(--bar-bg)  calc(var(--bars)*3.5),
+      var(--bar-color) calc(var(--bars)*4),
+      var(--bar-bg)  calc(var(--bars)*5),
+      var(--bar-bg)  calc(var(--bars)*10)
+    );
+  background-position:
+    calc((((50% - var(--background-x)) * 1.65) + 50%) + (var(--background-y) * 0.5))  var(--background-x),
+    calc((((50% - var(--background-x)) * -0.9) + 50%) - (var(--background-y) * 0.75)) var(--background-y);
+  background-size: 200% 200%, 200% 200%;
+  background-blend-mode: screen;
+  filter: brightness(1.15) contrast(1.1);
+  mix-blend-mode: hard-light;
+}
+.card[data-rarity="rare holo"] .card__shine::after {
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsla(0,0%,90%,0.8) 0%, hsla(0,0%,78%,0.1) 25%, hsl(0,0%,0%) 90%
+  );
+  mix-blend-mode: luminosity;
+  filter: brightness(0.6) contrast(4);
+}
+.card[data-rarity="rare holo"] .card__glare {
+  opacity: calc(var(--card-opacity) * .8);
+  filter: brightness(0.8) contrast(1.5);
+  mix-blend-mode: overlay;
+}
+
+/* ── rare holo v  (v-regular.css 원본) ← ultra_rare ── */
+.card[data-rarity="rare holo v"] .card__shine,
+.card[data-rarity="rare holo v"] .card__shine::after {
+  --space: 5%; --angle: 133deg; --imgsize: 500px;
+  background-image:
+    repeating-linear-gradient(0deg,
+      var(--sunpillar-clr-1) calc(var(--space)*1),
+      var(--sunpillar-clr-2) calc(var(--space)*2),
+      var(--sunpillar-clr-3) calc(var(--space)*3),
+      var(--sunpillar-clr-4) calc(var(--space)*4),
+      var(--sunpillar-clr-5) calc(var(--space)*5),
+      var(--sunpillar-clr-6) calc(var(--space)*6),
+      var(--sunpillar-clr-1) calc(var(--space)*7)
+    ),
+    repeating-linear-gradient(var(--angle),
+      #0e152e 0%, hsl(180,10%,60%) 3.8%, hsl(180,29%,66%) 4.5%,
+      hsl(180,10%,60%) 5.2%, #0e152e 10%, #0e152e 12%
+    ),
+    radial-gradient(farthest-corner circle at var(--pointer-x) var(--pointer-y),
+      hsla(0,0%,0%,0.1) 12%, hsla(0,0%,0%,0.15) 20%, hsla(0,0%,0%,0.25) 120%
+    );
+  background-blend-mode: hue, hard-light;
+  background-size: 200% 700%, 300% 100%, 200% 100%;
+  background-position:
+    0% var(--background-y),
+    var(--background-x) var(--background-y),
+    var(--background-x) var(--background-y);
+  filter: brightness(.8) contrast(2.95) saturate(.65);
+}
+.card[data-rarity="rare holo v"] .card__shine::after {
+  content: "";
+  background-position:
+    0% var(--background-y),
+    calc(var(--background-x) * -1) calc(var(--background-y) * -1),
+    var(--background-x) var(--background-y);
+  background-size: 200% 400%, 195% 100%, 200% 100%;
+  filter: brightness(1) contrast(2.5) saturate(1.75);
+  mix-blend-mode: soft-light;
+}
+.card[data-rarity="rare holo v"] .card__glare {
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsl(0,0%,100%) 0%, hsla(210,3%,54%,0.33) 45%, hsla(0,0%,20%,0.9) 130%
+  );
+  opacity: calc(var(--card-opacity) * .5);
+  mix-blend-mode: hard-light;
+  filter: brightness(.9) contrast(1.75);
+}
+
+/* ── rare secret  (secret-rare.css 원본) ← hyper_rare ── */
+.card[data-rarity="rare secret"] .card__shine {
+  --shift: 1px; --imgsize: cover;
+  background-image:
+    conic-gradient(
+      var(--sunpillar-clr-4), var(--sunpillar-clr-5),
+      var(--sunpillar-clr-6), var(--sunpillar-clr-1), var(--sunpillar-clr-4)
+    ),
+    radial-gradient(farthest-corner circle at var(--pointer-x) var(--pointer-y),
+      hsla(150,0%,0%,.98) 10%, hsla(0,0%,95%,.15) 90%
+    );
+  background-size: cover, cover;
+  background-position: center center, center center;
+  background-blend-mode: overlay;
+  mix-blend-mode: color-dodge;
+  filter: brightness(calc(0.4 + (var(--pointer-from-center) * 0.2))) contrast(1) saturate(2.7);
+}
+.card[data-rarity="rare secret"] .card__shine::before {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  background-image:
+    linear-gradient(45deg, hsl(46,95%,50%), hsl(52,100%,69%)),
+    radial-gradient(farthest-corner circle at var(--pointer-x) var(--pointer-y),
+      hsla(10,20%,90%,0.95) 10%, hsl(0,0%,0%) 70%
+    );
+  background-size: cover, cover;
+  background-position: center center, center center;
+  background-blend-mode: hard-light, multiply;
+  mix-blend-mode: lighten;
+  filter: brightness(1.25) contrast(1.25) saturate(0.35);
+  opacity: .8;
+}
+.card[data-rarity="rare secret"] .card__shine::after {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  /* 원본은 glitter 이미지 사용, 우리는 CSS로 대체 */
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px,
+    transparent 1px, transparent 4px
+  );
+  background-size: 4px 4px;
+  background-position: calc(50% - ((var(--shift)*2) * var(--pointer-from-left)) + var(--shift))
+                       calc(50% - ((var(--shift)*2) * var(--pointer-from-top))  + var(--shift));
+  filter: brightness(calc((var(--pointer-from-center)*0.6) + 0.6)) contrast(1.5);
+  mix-blend-mode: overlay;
+}
+.card[data-rarity="rare secret"] .card__glare {
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsla(45,8%,80%,0.3) 0%, hsl(22,15%,12%) 180%
+  );
+  filter: brightness(1.3) contrast(1.5);
+  mix-blend-mode: hard-light;
+}
+
+/* ── fallback 배경 (이미지 없을 때) ── */
+.card[data-rarity="common"]     .card__front { background: linear-gradient(145deg,#1e293b,#334155); }
+.card[data-rarity="uncommon"]   .card__front { background: linear-gradient(145deg,#064e3b,#065f46); }
+.card[data-rarity="rare holo"]  .card__front { background: linear-gradient(145deg,#1e3a8a,#1d4ed8); }
+.card[data-rarity="rare holo v"].card__front  { background: linear-gradient(145deg,#3b0764,#6d28d9,#4c1d95); }
+.card[data-rarity="rare secret"].card__front  { background: linear-gradient(145deg,#78350f,#b45309,#fbbf24); }
+
+/* ── 텍스트 fallback (이미지 없을 때만 표시) ── */
+.card__fallback {
+  position:absolute; inset:0; z-index:2;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:16px; gap:8px; text-align:center; pointer-events:none;
+}
+.card.has-image .card__fallback { display:none; }
+.card__fallback-icon { font-size:3rem; opacity:.4; }
+.card__fallback-rarity {
+  font-size:.6rem; font-weight:900; letter-spacing:2px;
+  padding:3px 8px; border-radius:99px;
+}
+.card[data-rarity="common"]     .card__fallback-rarity { background:#374151; color:#9ca3af; }
+.card[data-rarity="uncommon"]   .card__fallback-rarity { background:rgba(34,197,94,.2); color:#4ade80; border:1px solid #22c55e; }
+.card[data-rarity="rare holo"]  .card__fallback-rarity { background:rgba(59,130,246,.2); color:#60a5fa; border:1px solid #3b82f6; }
+.card[data-rarity="rare holo v"].card__fallback-rarity  { background:rgba(168,85,247,.3); color:#d8b4fe; border:1px solid #a855f7; }
+.card[data-rarity="rare secret"].card__fallback-rarity  { background:rgba(245,158,11,.2); color:#fbbf24; border:1px solid #f59e0b; box-shadow:0 0 10px rgba(245,158,11,.4); }
+.card__fallback-name { font-family:'Black Han Sans'; font-size:1.3rem; color:#fff; text-shadow:0 2px 8px rgba(0,0,0,.6); }
+.card__fallback-team { font-size:.75rem; color:rgba(255,255,255,.55); }
+.card__fallback-hint { font-size:.6rem; color:rgba(255,255,255,.25); margin-top:8px; line-height:1.5; }
+
+/* ══════════════════════════════════════════════════════
+   앱 레이아웃
+══════════════════════════════════════════════════════ */
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+body {
+  background:#0a0e1a; color:#e2e8f0;
+  font-family:'Noto Sans KR',sans-serif; min-height:100vh;
+  display:flex; flex-direction:column; align-items:center; padding:20px;
+  background-image:
+    radial-gradient(ellipse at 20% 50%,#1a1040 0%,transparent 60%),
+    radial-gradient(ellipse at 80% 20%,#0d2040 0%,transparent 50%);
+}
+header { text-align:center; margin-bottom:28px; }
+header h1 {
+  font-family:'Black Han Sans'; font-size:2.4rem; letter-spacing:2px;
+  background:linear-gradient(90deg,#f59e0b,#f97316,#f59e0b);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+header p { color:#64748b; font-size:.85rem; margin-top:4px; }
+
+.game-container { width:100%; max-width:480px; display:flex; flex-direction:column; gap:16px; }
+.panel { background:#111827; border:1px solid #1e293b; border-radius:16px; padding:20px; }
+
+.attempts-bar { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.attempts-bar .label { font-size:.8rem; color:#64748b; }
+.attempts-bar .count { font-family:'Black Han Sans'; font-size:1.1rem; color:#f59e0b; }
+
+.rarity-hint { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.rarity-chip { font-size:.7rem; padding:3px 8px; border-radius:99px; font-weight:700; letter-spacing:.5px; }
+.rc-hyper    { background:linear-gradient(90deg,#f59e0b,#b45309); color:#fff; }
+.rc-ultra    { background:linear-gradient(90deg,#a855f7,#6d28d9); color:#fff; }
+.rc-rare     { background:linear-gradient(90deg,#3b82f6,#06b6d4); color:#fff; }
+.rc-uncommon { background:linear-gradient(90deg,#22c55e,#16a34a); color:#fff; }
+.rc-common   { background:#374151; color:#9ca3af; }
+
+.hint-row { display:flex; gap:8px; margin-top:6px; font-size:.72rem; color:#64748b; flex-wrap:wrap; }
+
+.input-section { display:flex; gap:10px; align-items:center; }
+.digit-inputs  { display:flex; gap:8px; flex:1; }
+.digit-input {
+  flex:1; background:#1e293b; border:2px solid #334155; border-radius:10px;
+  color:#e2e8f0; font-size:1.6rem; font-family:'Black Han Sans'; text-align:center;
+  padding:10px 0; outline:none; transition:border-color .2s;
+  -moz-appearance:textfield;
+}
+.digit-input::-webkit-inner-spin-button,
+.digit-input::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+.digit-input:focus { border-color:#f59e0b; }
+.digit-input.filled { border-color:#3b82f6; }
+
+.btn-guess {
+  background:linear-gradient(135deg,#f59e0b,#f97316); border:none; border-radius:10px;
+  color:#000; font-family:'Black Han Sans'; font-size:1rem; padding:12px 18px;
+  cursor:pointer; letter-spacing:1px; transition:transform .1s, opacity .2s; white-space:nowrap;
+}
+.btn-guess:hover  { opacity:.9; transform:scale(1.02); }
+.btn-guess:active { transform:scale(.97); }
+.btn-guess:disabled { opacity:.4; cursor:not-allowed; }
+
+.history-list { display:flex; flex-direction:column; gap:8px; max-height:260px; overflow-y:auto; }
+.history-item {
+  display:flex; align-items:center; gap:10px; padding:10px 14px;
+  background:#1e293b; border-radius:10px; animation:slideIn .3s ease;
+}
+@keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+.history-num { font-size:.72rem; color:#64748b; width:20px; text-align:center; }
+.history-digits { display:flex; gap:5px; flex:1; }
+.history-digit {
+  background:#0f172a; border-radius:6px; padding:4px 8px;
+  font-family:'Black Han Sans'; font-size:1rem; min-width:30px; text-align:center;
+}
+.history-result { display:flex; gap:6px; font-size:.75rem; font-weight:700; }
+.s-badge{color:#22c55e;} .b-badge{color:#3b82f6;} .o-badge{color:#64748b;}
+
+.btn-new {
+  width:100%; background:transparent; border:1px solid #1e293b; border-radius:10px;
+  color:#64748b; font-family:'Noto Sans KR'; font-size:.85rem; padding:10px;
+  cursor:pointer; transition:all .2s;
+}
+.btn-new:hover { border-color:#f59e0b; color:#f59e0b; }
+.nav-link { text-align:center; margin-top:8px; }
+.nav-link a { color:#64748b; text-decoration:none; font-size:.8rem; transition:color .2s; }
+.nav-link a:hover { color:#f59e0b; }
+.error-msg { color:#ef4444; font-size:.8rem; min-height:18px; margin-top:6px; }
+.empty-history { text-align:center; color:#64748b; font-size:.82rem; padding:20px 0; }
+
+/* ── 카드 획득 오버레이 ── */
+.card-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.92);
+  display:flex; align-items:center; justify-content:center;
+  z-index:100; opacity:0; pointer-events:none;
+  transition:opacity .4s; backdrop-filter:blur(12px);
+}
+.card-overlay.show { opacity:1; pointer-events:all; }
+
+.card-reveal {
+  display:flex; flex-direction:column; align-items:center; gap:20px;
+}
+
+/* 제목 / 정보 — 처음엔 숨김 */
+.reveal-title {
+  font-family:'Black Han Sans'; font-size:1.3rem; color:#f59e0b;
+  letter-spacing:2px; text-align:center;
+  opacity:0; transform:translateY(-10px);
+  transition:opacity .5s .1s, transform .5s .1s;
+}
+.reveal-info  {
+  text-align:center; color:#64748b; font-size:.8rem;
+  opacity:0; transform:translateY(8px);
+  transition:opacity .5s .2s, transform .5s .2s;
+}
+.reveal-info strong { color:#e2e8f0; }
+.card-reveal.revealed .reveal-title,
+.card-reveal.revealed .reveal-info { opacity:1; transform:none; }
+
+.btn-close-overlay {
+  background:transparent; border:1px solid #64748b; border-radius:8px;
+  color:#64748b; padding:8px 24px; cursor:pointer;
+  font-family:'Noto Sans KR'; font-size:.85rem; transition:all .2s;
+  opacity:0; pointer-events:none;
+  transition:opacity .4s .3s, border-color .2s, color .2s;
+}
+.card-reveal.revealed .btn-close-overlay { opacity:1; pointer-events:all; }
+.btn-close-overlay:hover { border-color:#f59e0b; color:#f59e0b; }
+
+/* ────────────────────────────────────────────────
+   카드 플립 컨테이너
+   phase 0: 뒷면 (대기)
+   phase 1: 뒷면 → 빛 번쩍 (클릭 직후)
+   phase 2: 플립 중 (앞면으로)
+   phase 3: 앞면 완성 + 홀로그램 활성
+──────────────────────────────────────────────── */
+.flip-scene {
+  perspective: 800px;
+  width: 240px;
+  height: calc(240px / 0.718);
+  cursor: pointer;
+}
+/* 클릭 유도 힌트 */
+.flip-hint {
+  font-size: .78rem; color: #64748b;
+  animation: hintPulse 1.6s ease-in-out infinite;
+  letter-spacing: .5px;
+}
+@keyframes hintPulse {
+  0%,100%{opacity:.5;transform:translateY(0)}
+  50%{opacity:1;transform:translateY(-3px)}
+}
+.card-reveal.revealed .flip-hint { display:none; }
+
+.flip-inner {
+  width:100%; height:100%;
+  position:relative;
+  transform-style: preserve-3d;
+  transition: transform .7s cubic-bezier(.4,0,.2,1);
+}
+.flip-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+/* 앞/뒷면 공통 */
+.flip-front, .flip-back {
+  position:absolute; inset:0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: var(--card-radius);
+  overflow: hidden;
+}
+
+/* 뒷면 */
+.flip-back {
+  background: linear-gradient(135deg, #0a192f 0%, #112240 40%, #0a192f 100%);
+  display:flex; align-items:center; justify-content:center;
+  border-radius: var(--card-radius);
+  box-shadow: 0 0 0 2px rgba(255,255,255,.07), 0 8px 32px rgba(0,0,0,.7);
+}
+.flip-back::before {
+  content:'';
+  position:absolute; inset:8px;
+  border:1px solid rgba(255,255,255,.1);
+  border-radius: 3% / 2%;
+}
+.flip-back::after {
+  content:'⚾';
+  font-size:4rem;
+  opacity:.18;
+  filter: drop-shadow(0 0 12px rgba(255,255,255,.3));
+}
+
+/* 앞면 — .card 구조를 그 안에 넣음 */
+.flip-front {
+  transform: rotateY(180deg);
+  display:grid;
+}
+/* 플립 완료 전까지 앞면 카드 인터랙션 차단 */
+.flip-inner:not(.flipped) .flip-front * { pointer-events:none !important; }
+
+/* 빛 번쩍 레이어 */
+.flip-flash {
+  position:fixed; inset:0; z-index:200;
+  pointer-events:none;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,.95) 0%,
+    rgba(255,255,255,.4) 30%,
+    transparent 70%);
+  opacity:0;
+}
+.flip-flash.burst {
+  animation: flashBurst .55s ease-out forwards;
+}
+@keyframes flashBurst {
+  0%  { opacity:0; transform:scale(.3); }
+  15% { opacity:1; transform:scale(1.2); }
+  40% { opacity:.85; }
+  100%{ opacity:0; transform:scale(2.5); }
+}
+
+/* 파티클 */
+.particles { position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius:var(--card-radius); z-index:10; }
+.particle  { position:absolute; width:4px; height:4px; border-radius:50%; animation:floatUp linear infinite; }
+@keyframes floatUp {
+  0%{transform:translateY(100%) rotate(0deg);opacity:0}
+  10%{opacity:1} 90%{opacity:1}
+  100%{transform:translateY(-100%) rotate(360deg);opacity:0}
+}
+.star-burst { position:fixed; inset:0; pointer-events:none; z-index:99; overflow:hidden; opacity:0; transition:opacity .3s; }
+.star-burst.show { opacity:1; }
+</style>
+</head>
+<style>
+.user-bar {
+  position:fixed; top:0; right:0; left:0; z-index:50;
+  display:flex; justify-content:flex-end; align-items:center;
+  gap:10px; padding:10px 20px;
+  background:linear-gradient(to bottom,rgba(10,14,26,.95),transparent);
+}
+.user-bar img {
+  width:32px; height:32px; border-radius:50%;
+  border:2px solid #1e293b; object-fit:cover;
+}
+.user-bar .uname { font-size:.8rem; color:#94a3b8; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.btn-logout {
+  background:transparent; border:1px solid #1e293b; border-radius:8px;
+  color:#64748b; font-size:.75rem; font-family:'Noto Sans KR'; padding:4px 10px;
+  cursor:pointer; text-decoration:none; transition:all .2s;
+}
+.btn-logout:hover { border-color:#ef4444; color:#ef4444; }
+body { padding-top: 52px; }
+</style>
+</head>
+<body>
+
+<div class="user-bar">
+  {% if user_picture %}
+  <img src="{{ user_picture }}" alt="{{ user_name }}" referrerpolicy="no-referrer">
+  {% endif %}
+  <span class="uname">{{ user_name }}</span>
+  <a href="/logout" class="btn-logout">로그아웃</a>
+</div>
+
+<header>
+  <h1>⚾ 야구 숫자 게임</h1>
+  <p>서로 다른 세 자리 숫자를 맞춰보세요!</p>
+</header>
+
+<div class="game-container">
+  <div class="panel">
+    <div class="attempts-bar">
+      <span class="label">시도 횟수</span>
+      <span class="count" id="attempts-count">0회</span>
+    </div>
+    <div class="rarity-hint">
+      <span class="rarity-chip rc-hyper">1~2회: HYPER RARE</span>
+      <span class="rarity-chip rc-ultra">3회: ULTRA RARE</span>
+      <span class="rarity-chip rc-rare">4회: RARE</span>
+      <span class="rarity-chip rc-uncommon">5회: UNCOMMON</span>
+      <span class="rarity-chip rc-common">6+회: COMMON</span>
+    </div>
+    <div class="hint-row">
+      <span>🟢 Strike: 숫자·위치 일치</span>
+      <span>🔵 Ball: 숫자만 일치</span>
+      <span>⚫ Out: 없음</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="input-section">
+      <div class="digit-inputs">
+        <input class="digit-input" id="d1" type="number" min="1" max="9" placeholder="?">
+        <input class="digit-input" id="d2" type="number" min="1" max="9" placeholder="?">
+        <input class="digit-input" id="d3" type="number" min="1" max="9" placeholder="?">
+      </div>
+      <button class="btn-guess" id="btn-guess" onclick="submitGuess()">던지기!</button>
+    </div>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <div class="panel">
+    <div class="history-list" id="history-list">
+      <div class="empty-history">아직 시도한 기록이 없어요 ⚾</div>
+    </div>
+  </div>
+
+  <button class="btn-new" onclick="startGame()">🔄 새 게임 시작</button>
+  <div class="nav-link"><a href="/collection">🗂️ 내 카드 컬렉션 보기</a></div>
+</div>
+
+<!-- 카드 획득 오버레이 -->
+<div class="card-overlay" id="card-overlay">
+  <div class="card-reveal" id="card-reveal">
+
+    <div class="reveal-title" id="reveal-title">🎴 카드 획득!</div>
+
+    <!-- 플립 씬 -->
+    <div class="flip-scene" id="flip-scene" onclick="flipCard()">
+      <div class="flip-inner" id="flip-inner">
+
+        <!-- 뒷면 -->
+        <div class="flip-back"></div>
+
+        <!-- 앞면: 포켓몬 카드 CSS 구조 -->
+        <div class="flip-front">
+          <div class="card" id="reward-card" data-rarity="common">
+            <div class="card__translater">
+              <div class="card__rotator" id="card-rotator">
+                <div class="card__front">
+                  <img class="card__img" id="card-img" src="" alt="" style="display:none;">
+                  <div class="card__shine"></div>
+                  <div class="card__glare"></div>
+                  <div class="card__fallback">
+                    <div class="card__fallback-icon">🎴</div>
+                    <span class="card__fallback-rarity" id="card-rarity-badge"></span>
+                    <div class="card__fallback-name" id="card-name"></div>
+                    <div class="card__fallback-team" id="card-team"></div>
+                    <div class="card__fallback-hint">static/cards/ 에 이미지를 추가하세요</div>
+                  </div>
+                </div>
+                <div class="particles" id="card-particles"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="flip-hint" id="flip-hint">👆 카드를 클릭해서 공개하세요</div>
+
+    <div class="reveal-info" id="reveal-info"></div>
+    <button class="btn-close-overlay" onclick="closeOverlay()">컬렉션에 저장 ✨</button>
+  </div>
+</div>
+
+<!-- 빛 번쩍 레이어 -->
+<div class="flip-flash" id="flip-flash"></div>
+<div class="star-burst" id="star-burst"></div>
+
+<script>
+/* ── 유틸 (원본 Math.js) ── */
+const round  = (v, p=3) => parseFloat(v.toFixed(p));
+const clamp  = (v, mn=0, mx=100) => Math.min(Math.max(v, mn), mx);
+const adjust = (v, fmn, fmx, tmn, tmx) => round(tmn + (tmx-tmn)*(v-fmn)/(fmx-fmn));
+
+/* ── 내부 레어도 키 → 원본 data-rarity 값 매핑 ── */
+const RARITY_ATTR = {
+  hyper_rare: 'rare secret',   // secret-rare.css
+  ultra_rare: 'rare holo v',   // v-regular.css
+  rare:       'rare holo',     // regular-holo.css
+  uncommon:   'uncommon',
+  common:     'common',
+};
+const RARITY_TITLES = {
+  hyper_rare: '🌌 HYPER RARE 획득!!',
+  ultra_rare: '⭐ ULTRA RARE 획득!',
+  rare:       '💎 RARE 카드 획득!',
+  uncommon:   '🌿 UNCOMMON 획득',
+  common:     '🎴 카드 획득',
+};
+
+/* ── 간단한 Spring 구현 (Svelte spring 포팅) ── */
+function makeSpring(init, {stiffness=0.066, damping=0.25}={}) {
+  let cur = {...init}, tgt = {...init};
+  let vel = Object.fromEntries(Object.keys(init).map(k=>[k,0]));
+  let raf = null; const cbs = [];
+  function tick() {
+    let settled = true;
+    for (const k of Object.keys(cur)) {
+      vel[k] = (vel[k] - stiffness*(cur[k]-tgt[k])) * (1-damping);
+      cur[k] += vel[k];
+      if (Math.abs(vel[k]) > 0.001 || Math.abs(cur[k]-tgt[k]) > 0.001) settled = false;
+    }
+    cbs.forEach(cb => cb({...cur}));
+    raf = settled ? null : requestAnimationFrame(tick);
+  }
+  return {
+    set(nv, {hard=false}={}) {
+      tgt = {...nv};
+      if (hard) { cur={...nv}; vel=Object.fromEntries(Object.keys(cur).map(k=>[k,0])); cbs.forEach(cb=>cb({...cur})); return; }
+      if (!raf) raf = requestAnimationFrame(tick);
+    },
+    onChange(cb) { cbs.push(cb); },
+    get() { return {...cur}; },
+    setProps(s, d) { stiffness=s; damping=d; }
+  };
+}
+
+/* ── 게임 상태 ── */
+let gameActive = false;
+const inputs = ['d1','d2','d3'].map(id => document.getElementById(id));
+inputs.forEach((inp, i) => {
+  inp.addEventListener('input', function() {
+    this.value = this.value.replace(/[^1-9]/g,'').slice(-1);
+    this.classList.toggle('filled', !!this.value);
+    if (this.value && i < inputs.length-1) inputs[i+1].focus();
+  });
+  inp.addEventListener('keydown', function(e) {
+    if (e.key==='Backspace' && !this.value && i>0) inputs[i-1].focus();
+    if (e.key==='Enter') submitGuess();
+  });
+});
+
+async function startGame() {
+  const res = await fetch('/game/start', {method:'POST'});
+  const data = await res.json();
+  if (data.status === 'ok') {
+    gameActive = true;
+    document.getElementById('attempts-count').textContent = '0회';
+    document.getElementById('history-list').innerHTML = '<div class="empty-history">아직 시도한 기록이 없어요 ⚾</div>';
+    document.getElementById('error-msg').textContent = '';
+    document.getElementById('btn-guess').disabled = false;
+    inputs.forEach(el => { el.value=''; el.classList.remove('filled'); });
+    inputs[0].focus();
+  }
+}
+
+async function submitGuess() {
+  if (!gameActive) { await startGame(); return; }
+  const [d1,d2,d3] = inputs.map(el => parseInt(el.value));
+  const err = document.getElementById('error-msg');
+  if (!d1||!d2||!d3) { err.textContent='세 자리를 모두 입력하세요!'; return; }
+  if (new Set([d1,d2,d3]).size!==3) { err.textContent='중복 없는 숫자를 입력하세요!'; return; }
+  err.textContent = '';
+
+  const res = await fetch('/game/guess', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({guess:[d1,d2,d3]})
+  });
+  const data = await res.json();
+  if (data.error) { err.textContent=data.error; return; }
+
+  document.getElementById('attempts-count').textContent = data.attempts+'회';
+
+  const histEl = document.getElementById('history-list');
+  histEl.querySelector('.empty-history')?.remove();
+
+  const resultText = (data.strikes===0&&data.balls===0)
+    ? `<span class="o-badge">OUT</span>`
+    : `${data.strikes>0?`<span class="s-badge">${data.strikes}S</span>`:''}${data.balls>0?`<span class="b-badge">${data.balls}B</span>`:''}`;
+
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  item.innerHTML = `
+    <span class="history-num">${data.attempts}</span>
+    <div class="history-digits">
+      <span class="history-digit">${d1}</span>
+      <span class="history-digit">${d2}</span>
+      <span class="history-digit">${d3}</span>
+    </div>
+    <div class="history-result">${resultText}</div>`;
+  histEl.prepend(item);
+
+  inputs.forEach(el => { el.value=''; el.classList.remove('filled'); });
+  inputs[0].focus();
+
+  if (data.win) {
+    gameActive = false;
+    document.getElementById('btn-guess').disabled = true;
+    setTimeout(() => showCard(data.card, data.attempts), 600);
+  }
+}
+
+/* ── 카드 공개 + spring 인터랙션 ── */
+const spR = makeSpring({x:0,y:0},       {stiffness:0.066, damping:0.25});
+const spG = makeSpring({x:50,y:50,o:0}, {stiffness:0.066, damping:0.25});
+const spB = makeSpring({x:50,y:50},     {stiffness:0.066, damping:0.25});
+
+function applyVars() {
+  const card = document.getElementById('reward-card'); if (!card) return;
+  const g = spG.get(), r = spR.get(), b = spB.get();
+  const fc = clamp(Math.sqrt((g.y-50)**2+(g.x-50)**2)/50, 0, 1);
+  card.style.setProperty('--pointer-x',          `${g.x}%`);
+  card.style.setProperty('--pointer-y',          `${g.y}%`);
+  card.style.setProperty('--card-opacity',        `${g.o}`);
+  card.style.setProperty('--rotate-x',            `${r.x}deg`);
+  card.style.setProperty('--rotate-y',            `${r.y}deg`);
+  card.style.setProperty('--background-x',        `${b.x}%`);
+  card.style.setProperty('--background-y',        `${b.y}%`);
+  card.style.setProperty('--pointer-from-center', `${fc}`);
+  card.style.setProperty('--pointer-from-top',    `${g.y/100}`);
+  card.style.setProperty('--pointer-from-left',   `${g.x/100}`);
+}
+spR.onChange(applyVars); spG.onChange(applyVars); spB.onChange(applyVars);
+
+function onMove(e) {
+  const rotator = document.getElementById('card-rotator'); if (!rotator) return;
+  const rect = rotator.getBoundingClientRect();
+  const cx = e.touches ? e.touches[0].clientX : e.clientX;
+  const cy = e.touches ? e.touches[0].clientY : e.clientY;
+  const px = clamp(round((100/rect.width)*(cx-rect.left)));
+  const py = clamp(round((100/rect.height)*(cy-rect.top)));
+  spR.setProps(0.066,0.25); spG.setProps(0.066,0.25); spB.setProps(0.066,0.25);
+  spB.set({x:adjust(px,0,100,37,63), y:adjust(py,0,100,33,67)});
+  spR.set({x:round(-(px-50)/3.5), y:round((py-50)/3.5)});
+  spG.set({x:px, y:py, o:1});
+}
+function onLeave() {
+  setTimeout(() => {
+    spR.setProps(0.01,0.06); spR.set({x:0,y:0});
+    spG.setProps(0.01,0.06); spG.set({x:50,y:50,o:0});
+    spB.setProps(0.01,0.06); spB.set({x:50,y:50});
+  }, 300);
+}
+
+/* 현재 카드 데이터 보관 */
+let pendingCard = null;
+let cardFlipped = false;
+
+async function showCard(card, attempts) {
+  pendingCard = {card, attempts};
+  cardFlipped = false;
+
+  const rAttr = RARITY_ATTR[card.rarity] || 'common';
+  const cardEl = document.getElementById('reward-card');
+  cardEl.setAttribute('data-rarity', rAttr);
+  cardEl.classList.remove('has-image');
+
+  // fallback 텍스트
+  document.getElementById('card-rarity-badge').textContent = card.rarity_label || '';
+  document.getElementById('card-name').textContent = card.card_name || '???';
+  document.getElementById('card-team').textContent = card.team || '';
+
+  // 이미지 미리 로드 (플립 전에 준비)
+  const imgEl = document.getElementById('card-img');
+  imgEl.style.display = 'none';
+  if (card.card_id) {
+    try {
+      const r = await fetch(`/card-image/${encodeURIComponent(card.card_id)}`);
+      const d = await r.json();
+      if (d.exists) {
+        imgEl.src = d.url + '?t=' + Date.now();
+        imgEl.style.display = 'block';
+        cardEl.classList.add('has-image');
+      }
+    } catch(e) {}
+  }
+
+  // spring 초기화
+  spR.set({x:0,y:0},{hard:true});
+  spG.set({x:50,y:50,o:0},{hard:true});
+  spB.set({x:50,y:50},{hard:true});
+  applyVars();
+
+  // 플립 상태 초기화
+  document.getElementById('flip-inner').classList.remove('flipped');
+  document.getElementById('card-reveal').classList.remove('revealed');
+  document.getElementById('flip-scene').style.cursor = 'pointer';
+
+  // 오버레이 표시
+  document.getElementById('card-overlay').classList.add('show');
+}
+
+function flipCard() {
+  if (cardFlipped) return;
+  cardFlipped = true;
+
+  const flipInner   = document.getElementById('flip-inner');
+  const flashEl     = document.getElementById('flip-flash');
+  const reveal      = document.getElementById('card-reveal');
+  const flipScene   = document.getElementById('flip-scene');
+  const {card, attempts} = pendingCard;
+
+  flipScene.style.cursor = 'default';
+
+  // 1단계: 빛 번쩍
+  flashEl.classList.add('burst');
+  flashEl.addEventListener('animationend', () => flashEl.classList.remove('burst'), {once:true});
+
+  // 2단계: 플립 (빛과 동시에)
+  flipInner.classList.add('flipped');
+
+  // 3단계: 플립 완료 후 제목/정보 표시 + 효과
+  setTimeout(() => {
+    // 제목
+    document.getElementById('reveal-title').textContent = RARITY_TITLES[card.rarity] || '🎴 카드 획득!';
+    document.getElementById('reveal-info').innerHTML =
+      `<strong>${attempts}번</strong> 만에 정답!${card.card_name ? ` <strong>${card.card_name}</strong>` : ''} 컬렉션에 추가됩니다.`;
+
+    reveal.classList.add('revealed');
+    addParticles(card.rarity);
+
+    // 희귀도 높으면 별 버스트
+    if (['hyper_rare','ultra_rare'].includes(card.rarity)) shootStars();
+
+    // 4단계: 앞면 카드 인터랙션 연결 (조금 지연)
+    setTimeout(() => {
+      const rotator = document.getElementById('card-rotator');
+      rotator.addEventListener('pointermove', onMove);
+      rotator.addEventListener('mouseleave',  onLeave);
+      rotator.addEventListener('touchmove',   onMove);
+      rotator.addEventListener('touchend',    onLeave);
+    }, 200);
+
+  }, 550); // 플립 트랜지션 .7s의 약 80% 지점
+}
+
+function closeOverlay() {
+  document.getElementById('card-overlay').classList.remove('show');
+  const rotator = document.getElementById('card-rotator');
+  rotator.removeEventListener('pointermove', onMove);
+  rotator.removeEventListener('mouseleave',  onLeave);
+  rotator.removeEventListener('touchmove',   onMove);
+  rotator.removeEventListener('touchend',    onLeave);
+  onLeave();
+  cardFlipped = false;
+  pendingCard = null;
+}
+
+function addParticles(rarity) {
+  const colors = {
+    hyper_rare: ['#f59e0b','#fbbf24','#f97316','#ef4444'],
+    ultra_rare: ['#a855f7','#8b5cf6','#d8b4fe','#ec4899'],
+    rare:       ['#3b82f6','#06b6d4','#60a5fa'],
+    uncommon:   ['#22c55e','#4ade80'],
+    common:     [],
+  };
+  const c = colors[rarity] || [];
+  const container = document.getElementById('card-particles');
+  container.innerHTML = '';
+  for (let i = 0; i < c.length * 2; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random()*100 + '%';
+    p.style.background = c[Math.floor(Math.random()*c.length)];
+    p.style.animationDuration = (1.5 + Math.random()*2) + 's';
+    p.style.animationDelay = Math.random()*1.5 + 's';
+    container.appendChild(p);
+  }
+}
+
+function shootStars() {
+  const sb = document.getElementById('star-burst');
+  sb.innerHTML = ''; sb.classList.add('show');
+  const colors = ['#a855f7','#ec4899','#f59e0b','#3b82f6','#22c55e','#fff'];
+  for (let i = 0; i < 40; i++) {
+    const s = document.createElement('div');
+    s.style.cssText = `position:absolute;width:6px;height:6px;border-radius:50%;left:${20+Math.random()*60}%;top:${20+Math.random()*60}%;background:${colors[i%colors.length]};`;
+    const dx = (Math.random()-.5)*400, dy = (Math.random()-.5)*400;
+    s.animate([
+      {transform:'translate(-50%,-50%) scale(0)', opacity:1},
+      {transform:`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px)) scale(1)`, opacity:0}
+    ], {duration:1000+Math.random()*400, delay:Math.random()*200, fill:'forwards'});
+    sb.appendChild(s);
+  }
+  setTimeout(() => sb.classList.remove('show'), 1600);
+}
+
+startGame();
+</script>
+</body>
+</html>

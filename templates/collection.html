@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🗂️ 내 카드 컬렉션</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+/*
+  data-rarity 원본 매핑:
+    hyper_rare → "rare secret"
+    ultra_rare → "rare holo v"
+    rare       → "rare holo"
+    uncommon   → "uncommon"
+    common     → "common"
+*/
+:root {
+  --card-aspect: 0.718; --card-radius: 4.55% / 3.5%;
+  --card-edge: hsl(47,100%,78%); --card-glow: hsl(175,100%,90%);
+  --sunpillar-1:hsl(2,100%,73%);   --sunpillar-2:hsl(53,100%,69%);
+  --sunpillar-3:hsl(93,100%,69%);  --sunpillar-4:hsl(176,100%,76%);
+  --sunpillar-5:hsl(228,100%,74%); --sunpillar-6:hsl(283,100%,73%);
+  --sunpillar-clr-1:var(--sunpillar-1); --sunpillar-clr-2:var(--sunpillar-2);
+  --sunpillar-clr-3:var(--sunpillar-3); --sunpillar-clr-4:var(--sunpillar-4);
+  --sunpillar-clr-5:var(--sunpillar-5); --sunpillar-clr-6:var(--sunpillar-6);
+  --red:#f80e35;--yellow:#eedf10;--green:#21e985;--blue:#0dbde9;--violet:#c929f1;
+  --space:5%;--angle:133deg;--imgsize:cover;--shift:1px;
+  --pointer-x:50%;--pointer-y:50%;
+  --pointer-from-center:0;--pointer-from-top:0;--pointer-from-left:0;
+  --card-opacity:0;--rotate-x:0deg;--rotate-y:0deg;
+  --background-x:50%;--background-y:50%;--card-scale:1;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+
+/* ── 카드 구조 ── */
+.card {
+  width:100%; aspect-ratio:var(--card-aspect);
+  position:relative; cursor:pointer; transform-style:preserve-3d;
+  animation:cardIn .4s ease both;
+}
+@keyframes cardIn{from{opacity:0;transform:scale(.9) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.card__translater{width:100%;height:100%;transform-style:preserve-3d;transform-origin:center;}
+.card__rotator{
+  width:100%;height:100%;display:grid;perspective:600px;
+  transform:rotateY(var(--rotate-x)) rotateX(var(--rotate-y));
+  transform-style:preserve-3d;transform-origin:center;
+  border-radius:var(--card-radius);
+  box-shadow:0px 6px 18px -4px black,0 2px 10px -4px black;
+  transition:box-shadow .4s ease;
+}
+.card.active .card__rotator {
+  box-shadow:0 0 3px -1px white,0 0 3px 1px var(--card-edge),0 0 12px 2px var(--card-glow),
+    0px 10px 20px -5px black,0 0 40px -30px var(--card-glow),0 0 50px -20px var(--card-glow);
+}
+.card__rotator *{width:100%;display:grid;grid-area:1/1;aspect-ratio:var(--card-aspect);border-radius:var(--card-radius);overflow:hidden;pointer-events:none;}
+.card__front{transform:translate3d(0,0,0.01px);backface-visibility:hidden;-webkit-backface-visibility:hidden;}
+.card__front>img.card__img{width:100%;height:100%;object-fit:cover;display:block;border-radius:var(--card-radius);}
+
+/* shine/glare 공통 */
+.card__shine{transform:translateZ(1px);z-index:3;background:transparent;
+  filter:brightness(.85) contrast(2.75) saturate(.65);mix-blend-mode:color-dodge;
+  opacity:var(--card-opacity);overflow:hidden;
+  will-change:transform,opacity,background-image,background-size,background-position,filter;}
+.card__shine::before,.card__shine::after{
+  --sunpillar-clr-1:var(--sunpillar-5);--sunpillar-clr-2:var(--sunpillar-6);
+  --sunpillar-clr-3:var(--sunpillar-1);--sunpillar-clr-4:var(--sunpillar-2);
+  --sunpillar-clr-5:var(--sunpillar-3);--sunpillar-clr-6:var(--sunpillar-4);
+  content:"";grid-area:1/1;transform:translateZ(1px);border-radius:var(--card-radius);overflow:hidden;}
+.card__shine::after{
+  --sunpillar-clr-1:var(--sunpillar-6);--sunpillar-clr-2:var(--sunpillar-1);
+  --sunpillar-clr-3:var(--sunpillar-2);--sunpillar-clr-4:var(--sunpillar-3);
+  --sunpillar-clr-5:var(--sunpillar-4);--sunpillar-clr-6:var(--sunpillar-5);
+  transform:translateZ(1.2px);}
+.card__glare{transform:translateZ(1.41px);z-index:4;overflow:hidden;
+  background-image:radial-gradient(farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsla(0,0%,100%,0.8) 10%,hsla(0,0%,100%,0.65) 20%,hsla(0,0%,0%,0.5) 90%);
+  opacity:var(--card-opacity);mix-blend-mode:overlay;}
+
+/* common/uncommon */
+.card[data-rarity="common"]   .card__shine,
+.card[data-rarity="uncommon"] .card__shine{background:none;filter:none;}
+
+/* rare holo */
+.card[data-rarity="rare holo"] .card__shine{
+  background-image:
+    repeating-linear-gradient(110deg,var(--violet),var(--blue),var(--green),var(--yellow),var(--red),var(--violet),var(--blue),var(--green),var(--yellow),var(--red),var(--violet),var(--blue),var(--green),var(--yellow),var(--red)),
+    repeating-linear-gradient(90deg,black 0px,black 2px,#666 2px,#666 4px);
+  background-position:calc(((50% - var(--background-x))*2.6)+50%) calc(((50% - var(--background-y))*3.5)+50%),center;
+  background-size:400% 400%,cover;background-blend-mode:overlay;
+  filter:brightness(1.1) contrast(1.1) saturate(1.2);mix-blend-mode:color-dodge;}
+.card[data-rarity="rare holo"] .card__shine::before{
+  --bars:3%;--bar-color:hsla(0,0%,70%,1);--bar-bg:hsla(0,0%,0%,1);
+  background-image:
+    repeating-linear-gradient(90deg,var(--bar-bg) calc(var(--bars)*2),var(--bar-color) calc(var(--bars)*3),var(--bar-bg) calc(var(--bars)*3.5),var(--bar-color) calc(var(--bars)*4),var(--bar-bg) calc(var(--bars)*5),var(--bar-bg) calc(var(--bars)*14)),
+    repeating-linear-gradient(90deg,var(--bar-bg) calc(var(--bars)*2),var(--bar-color) calc(var(--bars)*3),var(--bar-bg) calc(var(--bars)*3.5),var(--bar-color) calc(var(--bars)*4),var(--bar-bg) calc(var(--bars)*5),var(--bar-bg) calc(var(--bars)*10));
+  background-position:calc((((50% - var(--background-x))*1.65)+50%)+(var(--background-y)*0.5)) var(--background-x),calc((((50% - var(--background-x))*-0.9)+50%)-(var(--background-y)*0.75)) var(--background-y);
+  background-size:200% 200%,200% 200%;background-blend-mode:screen;filter:brightness(1.15) contrast(1.1);mix-blend-mode:hard-light;}
+.card[data-rarity="rare holo"] .card__shine::after{
+  background-image:radial-gradient(farthest-corner circle at var(--pointer-x) var(--pointer-y),hsla(0,0%,90%,0.8) 0%,hsla(0,0%,78%,0.1) 25%,hsl(0,0%,0%) 90%);
+  mix-blend-mode:luminosity;filter:brightness(0.6) contrast(4);}
+.card[data-rarity="rare holo"] .card__glare{opacity:calc(var(--card-opacity)*.8);filter:brightness(.8) contrast(1.5);mix-blend-mode:overlay;}
+
+/* rare holo v */
+.card[data-rarity="rare holo v"] .card__shine,
+.card[data-rarity="rare holo v"] .card__shine::after{
+  --space:5%;--angle:133deg;
+  background-image:
+    repeating-linear-gradient(0deg,var(--sunpillar-clr-1) calc(var(--space)*1),var(--sunpillar-clr-2) calc(var(--space)*2),var(--sunpillar-clr-3) calc(var(--space)*3),var(--sunpillar-clr-4) calc(var(--space)*4),var(--sunpillar-clr-5) calc(var(--space)*5),var(--sunpillar-clr-6) calc(var(--space)*6),var(--sunpillar-clr-1) calc(var(--space)*7)),
+    repeating-linear-gradient(var(--angle),#0e152e 0%,hsl(180,10%,60%) 3.8%,hsl(180,29%,66%) 4.5%,hsl(180,10%,60%) 5.2%,#0e152e 10%,#0e152e 12%),
+    radial-gradient(farthest-corner circle at var(--pointer-x) var(--pointer-y),hsla(0,0%,0%,0.1) 12%,hsla(0,0%,0%,0.15) 20%,hsla(0,0%,0%,0.25) 120%);
+  background-blend-mode:hue,hard-light;
+  background-size:200% 700%,300% 100%,200% 100%;
+  background-position:0% var(--background-y),var(--background-x) var(--background-y),var(--background-x) var(--background-y);
+  filter:brightness(.8) contrast(2.95) saturate(.65);}
+.card[data-rarity="rare holo v"] .card__shine::after{
+  content:"";
+  background-position:0% var(--background-y),calc(var(--background-x)*-1) calc(var(--background-y)*-1),var(--background-x) var(--background-y);
+  background-size:200% 400%,195% 100%,200% 100%;
+  filter:brightness(1) contrast(2.5) saturate(1.75);mix-blend-mode:soft-light;}
+.card[data-rarity="rare holo v"] .card__glare{
+  background-image:radial-gradient(farthest-corner circle at var(--pointer-x) var(--pointer-y),hsl(0,0%,100%) 0%,hsla(210,3%,54%,0.33) 45%,hsla(0,0%,20%,0.9) 130%);
+  opacity:calc(var(--card-opacity)*.5);mix-blend-mode:hard-light;filter:brightness(.9) contrast(1.75);}
+
+/* rare secret */
+.card[data-rarity="rare secret"] .card__shine {
+  --r-clr-1: hsl(0, 57%, 37%);
+  --r-clr-2: hsl(40, 53%, 39%);
+  --r-clr-3: hsl(90, 60%, 35%);
+  --r-clr-4: hsl(180, 60%, 35%);
+  --r-clr-5: hsl(180, 60%, 35%);
+  --r-clr-6: hsl(210, 57%, 39%);
+  --r-clr-7: hsl(280, 55%, 31%);
+  background-image:
+    linear-gradient(-45deg, var(--r-clr-1), var(--r-clr-5)),
+    linear-gradient(-30deg,
+      var(--r-clr-1), var(--r-clr-2), var(--r-clr-3), var(--r-clr-4),
+      var(--r-clr-5), var(--r-clr-6), var(--r-clr-7),
+      var(--r-clr-1), var(--r-clr-2), var(--r-clr-3), var(--r-clr-4),
+      var(--r-clr-5), var(--r-clr-6), var(--r-clr-7),
+      var(--r-clr-1)
+    );
+  background-blend-mode: luminosity, soft-light;
+  background-size: 200% 200%, 400% 400%;
+  background-position:
+    calc(25% + (50% * var(--pointer-from-left))) calc(25% + (50% * var(--pointer-from-top))),
+    calc(25% + (var(--pointer-x) / 2)) calc(25% + (var(--pointer-y) / 2));
+  filter: brightness(calc((var(--pointer-from-center) * 0.25) + 0.6)) contrast(2.2) saturate(0.75);
+  mix-blend-mode: color-dodge;
+}
+.card[data-rarity="rare secret"] .card__shine::after {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  background-image:
+    linear-gradient(-60deg,
+      var(--r-clr-1), var(--r-clr-2), var(--r-clr-3), var(--r-clr-4),
+      var(--r-clr-5), var(--r-clr-6), var(--r-clr-7),
+      var(--r-clr-1), var(--r-clr-2), var(--r-clr-3), var(--r-clr-4),
+      var(--r-clr-5), var(--r-clr-6), var(--r-clr-7),
+      var(--r-clr-1)
+    );
+  background-blend-mode: soft-light;
+  background-size: 400% 400%;
+  background-position: var(--pointer-x) var(--pointer-y);
+  filter: brightness(calc((var(--pointer-from-center) * 0.3) + 0.55)) contrast(2) saturate(1);
+  mix-blend-mode: color-dodge;
+}
+.card[data-rarity="rare secret"] .card__glare {
+  background-image: radial-gradient(
+    farthest-corner circle at var(--pointer-x) var(--pointer-y),
+    hsl(0,0%,80%), hsla(187,10%,85%,0.25) 30%, hsl(197,6%,25%) 120%
+  );
+  filter: brightness(.9) contrast(1.75);
+  opacity: calc(var(--pointer-from-center) * 0.9);
+  mix-blend-mode: hard-light;
+}
+
+
+/* fallback 배경 */
+.card[data-rarity="common"]    .card__front{background:linear-gradient(145deg,#1e293b,#334155);}
+.card[data-rarity="uncommon"]  .card__front{background:linear-gradient(145deg,#064e3b,#065f46);}
+.card[data-rarity="rare holo"] .card__front{background:linear-gradient(145deg,#1e3a8a,#1d4ed8);}
+.card[data-rarity="rare holo v"].card__front{background:linear-gradient(145deg,#3b0764,#6d28d9);}
+.card[data-rarity="rare secret"].card__front{background: linear-gradient(145deg, #1a0533, #3b0764, #6d28d9);}
+
+/* fallback 텍스트 */
+.card__fallback{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px;gap:4px;text-align:center;pointer-events:none;}
+.card.has-image .card__fallback{display:none;}
+.card__fallback-icon{font-size:1.8rem;opacity:.35;}
+.card__fallback-rarity{font-size:.52rem;font-weight:900;letter-spacing:1.5px;padding:2px 5px;border-radius:99px;}
+.card[data-rarity="common"]    .card__fallback-rarity{background:#374151;color:#9ca3af;}
+.card[data-rarity="uncommon"]  .card__fallback-rarity{background:rgba(34,197,94,.2);color:#4ade80;border:1px solid #22c55e;}
+.card[data-rarity="rare holo"] .card__fallback-rarity{background:rgba(59,130,246,.2);color:#60a5fa;border:1px solid #3b82f6;}
+.card[data-rarity="rare holo v"].card__fallback-rarity{background:rgba(168,85,247,.3);color:#d8b4fe;border:1px solid #a855f7;}
+.card[data-rarity="rare secret"].card__fallback-rarity{background: rgba(168,85,247,.3);color: #d8b4fe;border: 1px solid #a855f7;box-shadow: 0 0 10px rgba(168,85,247,.4);}
+.card__fallback-name{font-family:'Black Han Sans';font-size:.9rem;color:#fff;}
+.card__fallback-team{font-size:.6rem;color:rgba(255,255,255,.5);}
+.card__fallback-date{font-size:.58rem;color:rgba(255,255,255,.3);margin-top:auto;}
+
+/* ── 앱 레이아웃 ── */
+body{background:#0a0e1a;color:#e2e8f0;font-family:'Noto Sans KR',sans-serif;min-height:100vh;padding:20px;
+  background-image:radial-gradient(ellipse at 20% 50%,#1a1040 0%,transparent 60%),radial-gradient(ellipse at 80% 20%,#0d2040 0%,transparent 50%);}
+header{text-align:center;margin-bottom:24px;}
+header h1{font-family:'Black Han Sans';font-size:2rem;background:linear-gradient(90deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.stats-row{display:flex;gap:10px;max-width:860px;margin:0 auto 20px;flex-wrap:wrap;}
+.stat-chip{background:#111827;border:1px solid #1e293b;border-radius:10px;padding:10px 16px;flex:1;min-width:90px;text-align:center;}
+.stat-chip .val{font-family:'Black Han Sans';font-size:1.4rem;color:#f59e0b;}
+.stat-chip .lbl{font-size:.72rem;color:#64748b;margin-top:2px;}
+.filter-row{display:flex;gap:8px;max-width:860px;margin:0 auto 16px;flex-wrap:wrap;}
+.filter-btn{background:#111827;border:1px solid #1e293b;border-radius:8px;color:#64748b;padding:6px 14px;font-size:.78rem;cursor:pointer;font-family:'Noto Sans KR';transition:all .2s;}
+.filter-btn:hover,.filter-btn.active{border-color:#f59e0b;color:#f59e0b;}
+.cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:16px;max-width:860px;margin:0 auto;}
+.empty-state{grid-column:1/-1;text-align:center;padding:60px 20px;color:#64748b;}
+.empty-state .big{font-size:3rem;margin-bottom:12px;}
+.empty-state p{font-size:.9rem;margin-bottom:16px;}
+.nav-link{text-align:center;margin:20px auto;max-width:860px;}
+.nav-link a{color:#64748b;font-size:.82rem;text-decoration:none;transition:color .2s;}
+.nav-link a:hover{color:#f59e0b;}
+
+/* ── 확대 오버레이 ── */
+.zoom-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.9);
+  display:flex;align-items:center;justify-content:center;
+  z-index:200;opacity:0;pointer-events:none;
+  transition:opacity .3s;backdrop-filter:blur(14px);
+}
+.zoom-overlay.show{opacity:1;pointer-events:all;}
+.zoom-wrap{display:flex;flex-direction:column;align-items:center;gap:20px;}
+.zoom-wrap .card{width:min(300px,80vw);animation:none!important;cursor:default;}
+.zoom-wrap .card__rotator{transition:box-shadow .4s ease;}
+.zoom-info{text-align:center;}
+.zoom-info .zi-name{font-family:'Black Han Sans';font-size:1.4rem;color:#fff;}
+.zoom-info .zi-team{font-size:.85rem;color:#64748b;margin-top:2px;}
+.zoom-info .zi-meta{display:flex;gap:10px;justify-content:center;margin-top:8px;font-size:.75rem;color:#64748b;flex-wrap:wrap;}
+.zoom-info .zi-rarity{font-weight:900;letter-spacing:1px;padding:2px 10px;border-radius:99px;}
+.zoom-close{
+  position:fixed;top:20px;right:20px;z-index:201;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);
+  border-radius:50%;width:44px;height:44px;cursor:pointer;
+  color:#fff;font-size:1.2rem;display:flex;align-items:center;justify-content:center;transition:background .2s;
+}
+.zoom-close:hover{background:rgba(255,255,255,.2);}
+@keyframes zoomCardIn{from{transform:scale(.4) rotateY(60deg);opacity:0}to{transform:scale(1) rotateY(0);opacity:1}}
+.zoom-overlay.show .zoom-wrap{animation:zoomCardIn .4s cubic-bezier(.34,1.56,.64,1) both;}
+</style>
+<style>
+.user-bar {
+  position:fixed; top:0; right:0; left:0; z-index:50;
+  display:flex; justify-content:flex-end; align-items:center;
+  gap:10px; padding:10px 20px;
+  background:linear-gradient(to bottom,rgba(10,14,26,.95),transparent);
+}
+.user-bar img { width:32px; height:32px; border-radius:50%; border:2px solid #1e293b; object-fit:cover; }
+.user-bar .uname { font-size:.8rem; color:#94a3b8; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.btn-logout {
+  background:transparent; border:1px solid #1e293b; border-radius:8px;
+  color:#64748b; font-size:.75rem; font-family:'Noto Sans KR'; padding:4px 10px;
+  cursor:pointer; text-decoration:none; transition:all .2s;
+}
+.btn-logout:hover { border-color:#ef4444; color:#ef4444; }
+body { padding-top: 52px; }
+</style>
+</head>
+<body>
+
+<div class="user-bar">
+  {% if user_picture %}
+  <img src="{{ user_picture }}" alt="{{ user_name }}" referrerpolicy="no-referrer">
+  {% endif %}
+  <span class="uname">{{ user_name }}</span>
+  <a href="/logout" class="btn-logout">로그아웃</a>
+</div>
+
+<header><h1>🗂️ 내 카드 컬렉션</h1></header>
+
+<div class="stats-row">
+  <div class="stat-chip"><div class="val" id="total-count">0</div><div class="lbl">전체 카드</div></div>
+  <div class="stat-chip"><div class="val" id="hyper-count" style="background:linear-gradient(90deg,#f59e0b,#b45309);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">0</div><div class="lbl">Hyper Rare</div></div>
+  <div class="stat-chip"><div class="val" id="ultra-count" style="background:linear-gradient(90deg,#a855f7,#6d28d9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">0</div><div class="lbl">Ultra Rare</div></div>
+  <div class="stat-chip"><div class="val" id="rare-count" style="color:#60a5fa">0</div><div class="lbl">Rare</div></div>
+</div>
+
+<div class="filter-row">
+  <button class="filter-btn active" onclick="filterCards('all',this)">전체</button>
+  <button class="filter-btn" onclick="filterCards('hyper_rare',this)">Hyper Rare</button>
+  <button class="filter-btn" onclick="filterCards('ultra_rare',this)">Ultra Rare</button>
+  <button class="filter-btn" onclick="filterCards('rare',this)">Rare</button>
+  <button class="filter-btn" onclick="filterCards('uncommon',this)">Uncommon</button>
+  <button class="filter-btn" onclick="filterCards('common',this)">Common</button>
+</div>
+
+<div class="cards-grid" id="cards-grid"></div>
+<div class="nav-link"><a href="/">⚾ 게임으로 돌아가기</a></div>
+
+<div class="zoom-overlay" id="zoom-overlay">
+  <button class="zoom-close" onclick="closeZoom()">✕</button>
+  <div class="zoom-wrap" id="zoom-wrap"></div>
+</div>
+
+<script>
+const round  = (v,p=3)=>parseFloat(v.toFixed(p));
+const clamp  = (v,mn=0,mx=100)=>Math.min(Math.max(v,mn),mx);
+const adjust = (v,fmn,fmx,tmn,tmx)=>round(tmn+(tmx-tmn)*(v-fmn)/(fmx-fmn));
+
+const RARITY_ATTR = {
+  hyper_rare:'rare secret', ultra_rare:'rare holo v',
+  rare:'rare holo', uncommon:'uncommon', common:'common',
+};
+const RARITY_LABELS = {
+  hyper_rare:'HYPER RARE', ultra_rare:'ULTRA RARE',
+  rare:'RARE', uncommon:'UNCOMMON', common:'COMMON',
+};
+const BADGE_STYLE = {
+  'rare secret': 'background:rgba(245,158,11,.2);color:#fbbf24;border:1px solid #f59e0b;box-shadow:0 0 8px rgba(245,158,11,.4)',
+  'rare holo v': 'background:rgba(168,85,247,.3);color:#d8b4fe;border:1px solid #a855f7',
+  'rare holo':   'background:rgba(59,130,246,.2);color:#60a5fa;border:1px solid #3b82f6',
+  'uncommon':    'background:rgba(34,197,94,.2);color:#4ade80;border:1px solid #22c55e',
+  'common':      'background:#374151;color:#9ca3af',
+};
+
+function makeSpring(init,{stiffness=0.066,damping=0.25}={}) {
+  let cur={...init},tgt={...init},vel=Object.fromEntries(Object.keys(init).map(k=>[k,0])),raf=null,cbs=[];
+  function tick(){let ok=true;for(const k of Object.keys(cur)){vel[k]=(vel[k]-stiffness*(cur[k]-tgt[k]))*(1-damping);cur[k]+=vel[k];if(Math.abs(vel[k])>.001||Math.abs(cur[k]-tgt[k])>.001)ok=false;}cbs.forEach(cb=>cb({...cur}));raf=ok?null:requestAnimationFrame(tick);}
+  return{
+    set(nv,{hard=false}={}){tgt={...nv};if(hard){cur={...nv};vel=Object.fromEntries(Object.keys(cur).map(k=>[k,0]));cbs.forEach(cb=>cb({...cur}));return;}if(!raf)raf=requestAnimationFrame(tick);},
+    onChange(cb){cbs.push(cb);},get(){return{...cur};},setProps(s,d){stiffness=s;damping=d;}
+  };
+}
+
+let allCards=[];
+const imgCache={};
+async function getImg(cardId){
+  if(cardId in imgCache)return imgCache[cardId];
+  try{const r=await fetch(`/card-image/${encodeURIComponent(cardId)}`);const d=await r.json();imgCache[cardId]=d.exists?d.url:null;}
+  catch{imgCache[cardId]=null;}
+  return imgCache[cardId];
+}
+
+async function loadCollection(){
+  const res=await fetch('/collection/data');
+  allCards=await res.json();
+  updateStats(); renderCards('all');
+}
+function updateStats(){
+  document.getElementById('total-count').textContent=allCards.length;
+  document.getElementById('hyper-count').textContent=allCards.filter(c=>c.rarity==='hyper_rare').length;
+  document.getElementById('ultra-count').textContent=allCards.filter(c=>c.rarity==='ultra_rare').length;
+  document.getElementById('rare-count').textContent=allCards.filter(c=>c.rarity==='rare').length;
+}
+function filterCards(rarity,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active'); renderCards(rarity);
+}
+
+let currentFilter='all';
+function renderCards(rarity){
+  currentFilter=rarity;
+  const grid=document.getElementById('cards-grid');
+  const list=rarity==='all'?allCards:allCards.filter(c=>c.rarity===rarity);
+  if(!list.length){
+    grid.innerHTML=`<div class="empty-state"><div class="big">📭</div><p>${rarity==='all'?'아직 카드가 없어요.':'해당 레어도의 카드가 없어요.'}</p><a href="/" style="color:#f59e0b;text-decoration:none;">게임 하러 가기 →</a></div>`;
+    return;
+  }
+  grid.innerHTML=list.map((card,i)=>{
+    const date=new Date(card.obtained_at).toLocaleDateString('ko-KR',{month:'short',day:'numeric'});
+    const rAttr=RARITY_ATTR[card.rarity]||'common';
+    return `<div class="card" data-rarity="${rAttr}" data-idx="${i}" style="animation-delay:${i*.04}s" onclick="openZoom(${i})">
+      <div class="card__translater"><div class="card__rotator" data-rotator>
+        <div class="card__front">
+          <img class="card__img" data-cid="${card.card_id||''}" src="" alt="" style="display:none;">
+          <div class="card__shine"></div><div class="card__glare"></div>
+          <div class="card__fallback">
+            <div class="card__fallback-icon">🎴</div>
+            <span class="card__fallback-rarity">${RARITY_LABELS[card.rarity]||''}</span>
+            <div class="card__fallback-name">${card.card_name||'???'}</div>
+            <div class="card__fallback-team">${card.team||''}</div>
+            <div class="card__fallback-date">${date} · ${card.attempts}회</div>
+          </div>
+        </div>
+      </div></div>
+    </div>`;
+  }).join('');
+
+  /* 이미지 비동기 적용 */
+  list.forEach(async(card,i)=>{
+    if(!card.card_id)return;
+    const url=await getImg(card.card_id); if(!url)return;
+    const el=grid.querySelector(`.card[data-idx="${i}"]`); if(!el)return;
+    const img=el.querySelector('.card__img'); if(!img)return;
+    img.src=url; img.style.display='block'; el.classList.add('has-image');
+  });
+
+  /* 그리드 hover 틸트 */
+  grid.querySelectorAll('.card').forEach(el=>{
+    el.addEventListener('mousemove',e=>{
+      const rc=el.getBoundingClientRect();
+      const px=clamp(round((100/rc.width)*(e.clientX-rc.left)));
+      const py=clamp(round((100/rc.height)*(e.clientY-rc.top)));
+      const fc=clamp(Math.sqrt((py-50)**2+(px-50)**2)/50,0,1);
+      el.style.setProperty('--rotate-x',`${round(-(px-50)/5)}deg`);
+      el.style.setProperty('--rotate-y',`${round((py-50)/5)}deg`);
+      el.style.setProperty('--pointer-x',`${px}%`);
+      el.style.setProperty('--pointer-y',`${py}%`);
+      el.style.setProperty('--background-x',`${adjust(px,0,100,37,63)}%`);
+      el.style.setProperty('--background-y',`${adjust(py,0,100,33,67)}%`);
+      el.style.setProperty('--card-opacity','1');
+      el.style.setProperty('--pointer-from-center',`${fc}`);
+      el.style.setProperty('--pointer-from-top',`${py/100}`);
+      el.style.setProperty('--pointer-from-left',`${px/100}`);
+    });
+    el.addEventListener('mouseleave',()=>{
+      el.style.setProperty('--rotate-x','0deg');
+      el.style.setProperty('--rotate-y','0deg');
+      el.style.setProperty('--card-opacity','0');
+    });
+  });
+}
+
+/* ── 확대 뷰 ── */
+let zR,zG,zB;
+
+async function openZoom(idx){
+  const list=currentFilter==='all'?allCards:allCards.filter(c=>c.rarity===currentFilter);
+  const card=list[idx]; if(!card)return;
+  const rAttr=RARITY_ATTR[card.rarity]||'common';
+  const rl=RARITY_LABELS[card.rarity]||'';
+  const date=new Date(card.obtained_at).toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric'});
+  const imgUrl=card.card_id?await getImg(card.card_id):null;
+
+  const wrap=document.getElementById('zoom-wrap');
+  wrap.innerHTML=`
+    <div class="zoom-info">
+      <div class="zi-name">${card.card_name||'???'}</div>
+      <div class="zi-team">${card.team||''}${card.position?` · ${card.position}`:''}</div>
+      <div class="zi-meta">
+        <span class="zi-rarity" style="${BADGE_STYLE[rAttr]||''}">${rl}</span>
+        <span>${card.attempts}번 만에 획득</span>
+        <span>${date}</span>
+      </div>
+    </div>
+    <div class="card${imgUrl?' has-image':''}" id="zcard" data-rarity="${rAttr}">
+      <div class="card__translater"><div class="card__rotator" id="zrotator">
+        <div class="card__front">
+          ${imgUrl?`<img class="card__img" src="${imgUrl}?t=${Date.now()}" style="display:block;" alt="">`:``}
+          <div class="card__shine"></div><div class="card__glare"></div>
+          ${!imgUrl?`<div class="card__fallback">
+            <div class="card__fallback-icon">🎴</div>
+            <span class="card__fallback-rarity" style="${BADGE_STYLE[rAttr]||''}">${rl}</span>
+            <div class="card__fallback-name">${card.card_name||'???'}</div>
+            <div class="card__fallback-team">${card.team||''}</div>
+          </div>`:''}
+        </div>
+      </div></div>
+    </div>`;
+
+  document.getElementById('zoom-overlay').classList.add('show');
+  document.body.style.overflow='hidden';
+
+  /* spring 설정 */
+  zR=makeSpring({x:0,y:0},{stiffness:.066,damping:.25});
+  zG=makeSpring({x:50,y:50,o:0},{stiffness:.066,damping:.25});
+  zB=makeSpring({x:50,y:50},{stiffness:.066,damping:.25});
+
+  function apply(){
+    const zc=document.getElementById('zcard');if(!zc)return;
+    const g=zG.get(),r=zR.get(),b=zB.get();
+    const fc=clamp(Math.sqrt((g.y-50)**2+(g.x-50)**2)/50,0,1);
+    zc.style.setProperty('--pointer-x',`${g.x}%`);
+    zc.style.setProperty('--pointer-y',`${g.y}%`);
+    zc.style.setProperty('--card-opacity',`${g.o}`);
+    zc.style.setProperty('--rotate-x',`${r.x}deg`);
+    zc.style.setProperty('--rotate-y',`${r.y}deg`);
+    zc.style.setProperty('--background-x',`${b.x}%`);
+    zc.style.setProperty('--background-y',`${b.y}%`);
+    zc.style.setProperty('--pointer-from-center',`${fc}`);
+    zc.style.setProperty('--pointer-from-top',`${g.y/100}`);
+    zc.style.setProperty('--pointer-from-left',`${g.x/100}`);
+  }
+  zR.onChange(apply); zG.onChange(apply); zB.onChange(apply);
+
+  const zrot=document.getElementById('zrotator');
+  if(zrot){
+    zrot.addEventListener('pointermove',e=>{
+      const rc=zrot.getBoundingClientRect();
+      const px=clamp(round((100/rc.width)*(e.clientX-rc.left)));
+      const py=clamp(round((100/rc.height)*(e.clientY-rc.top)));
+      zR.setProps(.066,.25);zG.setProps(.066,.25);zB.setProps(.066,.25);
+      zB.set({x:adjust(px,0,100,37,63),y:adjust(py,0,100,33,67)});
+      zR.set({x:round(-(px-50)/3.5),y:round((py-50)/3.5)});
+      zG.set({x:px,y:py,o:1});
+    });
+    zrot.addEventListener('mouseleave',resetZoomSpring);
+  }
+
+  /* 입장 자동 애니메이션 */
+  setTimeout(()=>{
+    zR.setProps(.02,.5);zG.setProps(.02,.5);zB.setProps(.02,.5);
+    zR.set({x:-15,y:8});zG.set({x:70,y:30,o:.85});zB.set({x:40,y:36});
+    setTimeout(resetZoomSpring,1400);
+  },350);
+}
+
+function resetZoomSpring(){
+  setTimeout(()=>{
+    if(!zR)return;
+    zR.setProps(.01,.06);zR.set({x:0,y:0});
+    zG.setProps(.01,.06);zG.set({x:50,y:50,o:0});
+    zB.setProps(.01,.06);zB.set({x:50,y:50});
+  },300);
+}
+
+function closeZoom(){
+  document.getElementById('zoom-overlay').classList.remove('show');
+  document.body.style.overflow='';
+  setTimeout(()=>{document.getElementById('zoom-wrap').innerHTML='';zR=zG=zB=null;},300);
+}
+
+/* 오버레이 배경 클릭 닫기 */
+document.getElementById('zoom-overlay').addEventListener('click',e=>{
+  if(e.target===e.currentTarget)closeZoom();
+});
+
+loadCollection();
+</script>
+</body>
+</html>
